@@ -4,13 +4,14 @@ from IPython.display import display
 # # **Bazinga Scan**
 # %%
 
-
+!if ! pip show requests==2.28.1 > /dev/null; then pip install requests==2.28.1 > /dev/null 2>&1; fi
 # %%
 import subprocess
 import shutil
 import os
 import re
-
+import requests
+import json
 
 print("Instalando Dependências...")
 
@@ -36,7 +37,6 @@ from IPython.display import display
 !if ! which theHarvester > /dev/null; then git clone https://github.com/laramies/theHarvester.git > /dev/null 2>&1; fi
 import nmap
 
-
 ## MAIN ##
 def init():
   print(r"""
@@ -53,30 +53,40 @@ __________               .__                         _________
     portas = input("Insira as portas que gostaria de analisar: ")
     scan_result = scan_ports(alvo, portas)
     exib_portScanning(scan_result)
+    geo_input = input("Deseja realizar uma busca de geolocalização com seu endereço IP? (S/N)")
+    if geo_input.strip().upper() == "S" :
+      ip_address = exib_portScanning(scan_result)
+      geo_data = get_geolocation(ip_address)
+      exib_geolocation(geo_data, ip_address)
   elif action.upper().strip() == "HACKERSCAN":
     alvo = input("Insira o IP ou faixa de IP's alvo: ")
     modo = input("Insira o Nível de escaneamento(1, 2 ou 3): ")
     scan_result = scan_hacker(alvo, modo)
     exib_portScanning(scan_result)
+    geo_input = input("Deseja realizar uma busca de geolocalização com seu endereço IP? (S/N)")
+    if geo_input.strip().upper() == "S":
+      ip_address = exib_portScanning(scan_result)
+      geo_data = get_geolocation(ip_address)
+      exib_geolocation(geo_data, ip_address)
   elif action.upper().strip() == "HELP":
     print(r"""_
- _________                       .__            .___              
-\______   \ ____   _____   ___  _|__| ____    __| _/____          
- |    |  _// __ \ /     \  \  \/ /  |/    \  / __ |/  _ \         
- |    |   \  ___/|  Y Y  \  \   /|  |   |  \/ /_/ (  <_> )        
- |______  /\___  >__|_|  /   \_/ |__|___|  /\____ |\____/         
-        \/     \/      \/                \/      \/               
-                __________               .__                      
-_____    ____   \______   \_____  _______|__| ____    _________   
-\__  \  /  _ \   |    |  _/\__  \ \___   /  |/    \  / ___\__  \  
+ _________                       .__            .___
+\______   \ ____   _____   ___  _|__| ____    __| _/____
+ |    |  _// __ \ /     \  \  \/ /  |/    \  / __ |/  _ \
+ |    |   \  ___/|  Y Y  \  \   /|  |   |  \/ /_/ (  <_> )
+ |______  /\___  >__|_|  /   \_/ |__|___|  /\____ |\____/
+        \/     \/      \/                \/      \/
+                __________               .__
+_____    ____   \______   \_____  _______|__| ____    _________
+\__  \  /  _ \   |    |  _/\__  \ \___   /  |/    \  / ___\__  \
  / __ \(  <_> )  |    |   \ / __ \_/    /|  |   |  \/ /_/  > __ \_
 (____  /\____/   |______  /(____  /_____ \__|___|  /\___  (____  /
-     \/                 \/      \/      \/       \//_____/     \/ 
-  _________                   ._._.                               
- /   _____/ ____ _____    ____| | |                               
- \_____  \_/ ___\\__  \  /    \ | |                               
- /        \  \___ / __ \|   |  \|\|                               
-/_______  /\___  >____  /___|  /___                               
+     \/                 \/      \/      \/       \//_____/     \/
+  _________                   ._._.
+ /   _____/ ____ _____    ____| | |
+ \_____  \_/ ___\\__  \  /    \ | |
+ /        \  \___ / __ \|   |  \|\|
+/_______  /\___  >____  /___|  /___
         \/     \/     \/     \/\/\/                               """)
     print("Analise suas opções de Comando:")
     print(" ------ PortScanning ------ ")
@@ -100,7 +110,44 @@ _____    ____   \______   \_____  _______|__| ____    _________
             for host in hosts_encontrados:
                 print(f"\n🔍 Executando HackerScan em: {host}")
                 scan_result = scan_hacker(host, modo)
-                exib_portScanning(scan_result)
+                ip_result = exib_portScanning(scan_result)
+  elif action.upper().strip() == "GEOLOCATION":
+    ip_address = input("Insira o IP alvo: ")
+    geo_data = get_geolocation(ip_address)
+    exib_geolocation(geo_data, ip_address)
+
+## GEOLOCATION
+def get_geolocation(ip_address):
+  base_url = "http://ip-api.com/json/"
+  url = f"{base_url}{ip_address}"
+  try:
+      response = requests.get(url)
+      response.raise_for_status() # Lança uma exceção para status codes de erro 4xx e 5xx
+      data = response.json()
+      return data
+  except requests.exceptions.RequestException as e:
+      print(f"Erro ao consultar a API de geolocalização: {e}")
+
+
+def exib_geolocation(geo_data, ip_address):
+  print(f"\n --- Geolocation para {ip_address} --- ")
+  if geo_data and geo_data.get('status') == 'success':
+      print(f"  País: {geo_data.get('country', 'N/A')}")
+      print(f"  Código do País: {geo_data.get('countryCode', 'N/A')}")
+      print(f"  Região: {geo_data.get('regionName', 'N/A')}")
+      print(f"  Cidade: {geo_data.get('city', 'N/A')}")
+      print(f"  CEP: {geo_data.get('zip', 'N/A')}")
+      print(f"  Latitude: {geo_data.get('lat', 'N/A')}")
+      print(f"  Longitude: {geo_data.get('lon', 'N/A')}")
+      print(f"  Timezone: {geo_data.get('timezone', 'N/A')}")
+      print(f"  ISP: {geo_data.get('isp', 'N/A')}")
+      print(f"  Organização: {geo_data.get('org', 'N/A')}")
+      print(f"  AS: {geo_data.get('as', 'N/A')}")
+  elif geo_data and geo_data.get('status') == 'fail':
+      print(f"  Erro na consulta: {geo_data.get('message', 'Erro desconhecido')}")
+  else:
+      print("   Nenhum resultado encontrado.")
+
 
 ## SUBDOMAINS ENUMERATION
 def enum_subdomains(target):
@@ -208,6 +255,7 @@ XX    XXXX            XXX     XX
             version = port_info.get('version', 'N/A')
             print(f"  Porta: {port} \n Estado: {state} \n Serviço: {product} \n Versão: {version}")
             print(f"\n  Link para ExploitDB: {exploitdb_search(product)}")
+            return ip_address
         else:
           print("Nenhuma porta TCP encontrada para este host.")
       except KeyError as e:
